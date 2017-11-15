@@ -198,6 +198,6 @@ RecruitOutcome recruitUnit(Map *map, int ownerID, TypeID typeID) {
 
 }
 
-Point AvailabeCastleLocation(Map map, int ownerID) {
+Point AvailableCastleLocation(Map map, int ownerID) {
 
 }
