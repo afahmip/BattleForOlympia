@@ -31,4 +31,4 @@ boolean recruitUnit(Map *map, int ownerID, TypeID typeID);
 
 /* Return the location of a castle with no unit in it */
 /* Return P(-1, -1) if there are no available location */
-Point AvailabeCastleLocation(Map map, int ownerID);
+Point AvailableCastleLocation(Map map, int ownerID);
