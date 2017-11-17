@@ -1,23 +1,26 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "Map.h"
 #include "GameController.h"
 #include "Undo.h"
 #include "User.h"
 #include "Unit.h"
 #include "boolean.h"
+#include "Point/Point.h"
 
 
 /* Var Global */
 int i; //Iterating variable
 int width, height, x, y;
-int Enemy, myUnit;
+int idxEnemy, idxUnit;
 int number_of_player, playerID, currUnitID;
+Unit *unitEnemy, *myUnit;
 Map map;
 char command[20];
 Player currPlayer;
-boolean IsOneKing, validCommand;
+boolean IsOneKing, validCommand, IsExit;
 
 
 void initializeMap(Map* map) {
@@ -47,13 +50,15 @@ int main() {
 
 	/* Initialize */
 	IsOneKing = false;
+	IsExit = false;
 
-	while(!IsOneKing){
+	while(!IsOneKing && !IsExit){
 		for(i = 1; i <= number_of_player; i++){
 			/* Initialize */
 			playerID = i;
 			currUnitID = 0;
 			currPlayer = *getPlayer(playerID);
+			myUnit = getUnit(currUnitID);
 
 			printf("Player %d's Turn\n", playerID);
 
@@ -67,7 +72,8 @@ int main() {
 			validCommand = false;
 			/* Choose action */
 			while(!validCommand){
-				if (command == "MOVE"){
+				if (strcmp(command, "MOVE")==0){
+
 					boolean IsCanMove;
 					Point From, To;
 					validCommand = true;
@@ -77,70 +83,168 @@ int main() {
 					printf("\n");
 					printf("Please​ ​enter​ ​cell’s​ ​coordinate​ ​x​ ​y :​ ");
 					scanf("%d %d",&x,&y);
-					IsCanMove = moveUnit(&map, currUnitID, x, y);
+					To = MakePoint(x, y);
+					IsCanMove = moveUnit(&map, currUnitID, absis(To), ordinat(To));
 					while(!IsCanMove){
 						printf("You​ ​can’t​ ​move​ ​there\n");
 						printf("Please​ ​enter​ ​cell’s​ ​coordinate​ ​x​ ​y :​ ");
 						scanf("%d %d",&x,&y);
+						To = MakePoint(x, y);
+						IsCanMove = moveUnit(&map, currUnitID, absis(To), ordinat(To));
 					}
-					registerMove(currUnitID, &map, );
+					//registerMove(currUnitID, &map, );
 					printf("You​ ​have​ ​successfully​ ​moved​ ​to​ (%d, %d)\n", x, y);
-				}else if (command == "UNDO"){
+
+				}else if (strcmp(command, "UNDO")==0){
+
 					validCommand = true;
 					
 					undo(&map);
 					printMap(map);
-				}else if (command == "CHANGE_UNIT"){
+
+				}else if (strcmp(command, "CHANGE_UNIT")==0){
+
+					int *listOfUnit;
+					int numberOrUnit;
 					validCommand = true;
 					
 					printf("=== List of Units ===\n");
-				}else if (command == "RECRUIT"){
+					//
+
+				}else if (strcmp(command, "RECRUIT")==0){
+
+					boolean castleOccupied=true;
+					int RecruitID;
+					Point From, To;
 					validCommand = true;
 					
 					printf("Enter coordinate of empty castle : ");
 					scanf("%d %d",&x,&y);
-					while(Castle_Occupied){
+					To = MakePoint(x, y);
+					//Occupy_castle
+					while(castleOccupied){
 						printf("That​ ​castle​ ​is​ ​occupied!\n");
 						printf("Enter coordinate of empty castle : ");
 						scanf("%d %d",&x,&y);
+						To = MakePoint(x, y);
+						//Occupy_castle
 					}
-					printf("\n");
-					printf("=== List of Recruits ===\n");
-				}else if (command == "ATTACK"){
+					printf("\n=== List of Recruits ===\n");
+					printf("Enter​ ​no.​ ​of​ ​unit​ ​you​ ​want​ ​to​ ​recruit : ");
+					scanf("%d", &RecruitID);
+					printf("You​ ​have​ ​recruited​ ​an​ !\n");
+
+				}else if (strcmp(command, "ATTACK")==0){
+
+					int* listOfTarget;
+					int numberOfTarget, idEnemy;
+					char enemyName[20], charName[20];
+					boolean battleDone=false;
+					BattleResult battleResult;
 					validCommand = true;
 					
 					initUndo();
 					printf("Enemies that ​you​ ​can ​attack :\n");
-					//print list
-					printf("Select enemy you want to attack : ");
-					scanf("%d", &Enemy);
-					procBattle(&map, myUnit, Enemy);
-				}else if (command == "MAP"){ //UDAH JADI
+					getTargetID(&map, currUnitID, listOfTarget, &numberOfTarget);
+
+					/* Print enemy list */
+					for (int j = 0; j < numberOfTarget; j++) {
+						Unit *unit = getUnit(listOfTarget[i]);
+						switch (unitTypes[unit->type].mapSymbol){
+							case 'K' :
+								strcpy(enemyName, "King");
+								break;
+							case 'A' :
+								strcpy(enemyName, "Archer");
+								break;
+							case 'S' :
+								strcpy(enemyName, "Swordsman");
+								break;
+							case 'W' :
+								strcpy(enemyName, "White Mage");
+								break;
+						}
+						printf("%d. %s (%d, %d) | Health %d/%d ", j+1, enemyName,
+							unit->location.X, unit->location.Y, unit->health, unitTypes[unit->type].maxHealth);
+						
+						/* Check if enemy can retaliate */
+						if(unitTypes[unit->type].atkType == unitTypes[myUnit->type].atkType)
+							printf("(Retaliates)\n");
+						else printf("\n");
+					}
+
+					/* Battle process */
+					while(!battleDone){
+						/* Choose enemy */
+						printf("Select enemy you want to attack : ");
+						scanf("%d", &idxEnemy);
+
+						idEnemy = listOfTarget[idxEnemy - 1];
+
+						/* Battle started */
+						battleResult = procBattle(&map, idxUnit, idEnemy);
+
+						unitEnemy = getUnit(idEnemy);
+
+						if(battleResult.battleFlag == ATTACK_SUCCEED){
+							//printf("Enemy’s​ %s ​is​ ​damaged​ ​by​, %d",battleResult.atkDamageDone);
+							if(unitTypes[unitEnemy->type].atkType == unitTypes[myUnit->type].atkType){
+								printf("Enemy’s​ retaliates.\n");
+							}
+							battleDone = true;
+						}else if(battleResult.battleFlag == ATTACK_MISSED){
+							printf("Attack missed! Poor you...\n");
+							battleDone = true;
+						}else if(battleResult.battleFlag == ATTACK_NOT_PERFORMED){
+							printf("You can't attack this unit!\n");
+						}
+					}
+
+				}else if (strcmp(command, "MAP")==0){ //UDAH JADI
+
 					validCommand = true;
 					
 					printf("\n");
 					printMap(map);
 					printf("\n");
-				}else if (command == "INFO"){ //UDAH JADI
+
+				}else if (strcmp(command, "INFO")==0){ //UDAH JADI
+
 					validCommand = true;
 					
 					printf("Enter​ ​the​ ​coordinate​ ​of​ ​the​ ​cell : ");
 					scanf("%d %d",&x,&y);
 					printInfoSquare(x, y, map);
-				}else if (command == "END_TURN"){ //UDAH JADI
+
+				}else if (strcmp(command, "END_TURN")==0){ //UDAH JADI
+
 					validCommand = true;
 
 					printf("Your turn has ended.\n");
 					break;
-				}else if (command == "SAVE"){
+
+				}else if (strcmp(command, "SAVE")==0){
+
 					validCommand = true;
 					
 
-				}else if (command == "EXIT"){
-					validCommand = true;
-					
+				}else if (strcmp(command, "EXIT")==0){ //UDAH JADI
 
-				}else printf("Wrong command!\n");
+					validCommand = true;
+					char Exit;
+					
+					printf("Are you sure want to exit? (y/n) : ");
+					scanf("%c", &Exit);
+					if(Exit == 'n')break;
+					else IsExit = true;
+
+				}else{ //UDAH JADI
+
+					printf("Invalid command!\n");
+					printf("Insert your command : ");
+					scanf("%s", command);
+
+				}
 			}
 		}
 	}
